@@ -75,10 +75,10 @@ async fn main() {
         _ = signal::ctrl_c() => {
             println!("Ctrl+C received. Exiting...");
             unsafe {
-                TerminateProcess(HANDLE(hProcess as *mut c_void), 0);
+                TerminateProcess(HANDLE(process_handle as *mut c_void), 0);
 
-                CloseHandle(HANDLE(hThread as *mut c_void));
-                CloseHandle(HANDLE(hProcess as *mut c_void));
+                CloseHandle(HANDLE(thread_handle as *mut c_void));
+                CloseHandle(HANDLE(process_handle as *mut c_void));
             }
         },
         _ = process_task => {
