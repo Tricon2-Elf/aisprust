@@ -1,0 +1,6 @@
+target
+debug
+
+
+*.lock
+.gdb_history
