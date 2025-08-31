@@ -24,8 +24,8 @@ Note that this was mostly meant as a fun side project, also to gain some experie
 
 Theres some fixed paths in this project that i havent bothered to make settable or change. For usage it should probably be changed
 
-- `crates/aisp_launcher/main.rs:55`
-- `crates/aisp_server/src/servers/msg_server.rs:62`
+- aisp_launcer: set environment `DLL_PATH` or change `crates/aisp_launcher/main.rs:56`
+- aisp_server: set environment `ITEM_LIST` `crates/aisp_server/src/servers/msg_server.rs:64`
 
 ## Hooks
 
@@ -35,15 +35,14 @@ Theres some fixed paths in this project that i havent bothered to make settable 
 - hooks logs for vce. useful for debugging.
 - hooks item base table to check data. seems like first is missing :/
 
-the game has some (ai)std::stream pointers here and there where the logs are outputted to. example is the vce log hooks, or packet send/recv functions. could be nice to change those at one point. 
-
+the game has some (ai)std::stream pointers here and there where the logs are outputted to. example is the vce log hooks, or packet send/recv functions. could be nice to change those at one point.
 
 ## Compile
 
+if on linux and need to compile `aisp_hook` and `aisp_launcher` go into into crate directory and run the following. (needs [cargo-xwin](https://github.com/rust-cross/cargo-xwin) unless xwin is implemented directly in build.rs)
 
-if on linux and need to compile  `aisp_hook` and `aisp_launcher` go into into crate directory and run the following. (needs [cargo-xwin](https://github.com/rust-cross/cargo-xwin) unless xwin is implemented directly in build.rs)
 ```
-XWIN_ARCH=x86 cargo xwin build 
+XWIN_ARCH=x86 cargo xwin build
 ```
 
 for the rest, normal `cargo build` or `cargo run` should work.

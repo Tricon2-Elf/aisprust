@@ -1,4 +1,4 @@
-use std::fs::File;
+use std::{env, fs::File};
 
 use aisp_packet::{
     packets::{
@@ -59,8 +59,12 @@ impl VceMsgHandler {
     fn load_items(&self) -> Vec<item::ItemData> {
         let mut out_items: Vec<item::ItemData> = Vec::new();
 
-        let item_file = File::open("/home/txt/Documents/RE/aispace/testitems.csv")
-            .expect("Failed to load items");
+        let item_path = match env::var("ITEM_LIST") {
+            Ok(str) => str,
+            Err(_) => "/home/txt/Documents/RE/aispace/testitems.csv".into(),
+        };
+
+        let item_file = File::open(item_path).expect("Failed to load items");
 
         let mut csv_reader = csv::ReaderBuilder::new()
             .delimiter(b',')

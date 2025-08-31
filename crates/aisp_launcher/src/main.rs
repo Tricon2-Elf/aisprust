@@ -1,7 +1,7 @@
 use argp::FromArgs;
 use std::ffi::{CString, c_void};
-use std::mem;
 use std::path::PathBuf;
+use std::{env, mem};
 
 use tokio::{net::UdpSocket, signal};
 
@@ -50,13 +50,19 @@ async fn main() {
         }
     }
 
-    let (process_handle, thread_handle) = match create_suspend_inject(
-        ".\\ai sp@ce.exe ./data",
-        "/home/txt/Documents/Code/AiSpace2/target/i686-pc-windows-msvc/debug/aispace_hook.dll",
-    ) {
-        Some(pi) => (pi.hProcess.0 as usize, pi.hThread.0 as usize),
-        None => panic!("Failed to spawn process!"),
+    let dll_path = match env::var("DLL_FILE") {
+        Ok(str) => str,
+        Err(_) => {
+            "/home/txt/Documents/Code/AiSpace2/target/i686-pc-windows-msvc/debug/aispace_hook.dll"
+                .into()
+        }
     };
+
+    let (process_handle, thread_handle) =
+        match create_suspend_inject(".\\ai sp@ce.exe ./data", &dll_path) {
+            Some(pi) => (pi.hProcess.0 as usize, pi.hThread.0 as usize),
+            None => panic!("Failed to spawn process!"),
+        };
 
     let process_task = tokio::task::spawn_blocking(move || unsafe {
         WaitForSingleObject(HANDLE(process_handle as *mut c_void), INFINITE);
