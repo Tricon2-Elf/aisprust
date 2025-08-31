@@ -58,4 +58,4 @@ NOTE: if camellia network encryption is implemented you might not need launcher
 
 ## Credits
 
-- `crates/aisp_hook/lib/detours` contains packaged microsoft detours which is licensed under MIT.
+- `crates/aisp_hook/lib/detours` contains packaged [microsoft detours](https://github.com/microsoft/Detours) which is licensed under MIT.
