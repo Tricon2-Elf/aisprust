@@ -1,0 +1,12 @@
+[package]
+name = "packfileutil"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+aisp = { path = "../aisp" }
+fmt_c = { path = "../fmt_c" }
+argp = "0.4.0"
+entropy = "0.4.2"
+walkdir = "2.5.0"
+rayon = "1.10.0"
