@@ -1,7 +1,7 @@
 use argp::FromArgs;
 use std::ffi::{CString, c_void};
 use std::path::PathBuf;
-use std::{env, mem};
+use std::{env, fs, mem};
 
 use tokio::{net::UdpSocket, signal};
 
@@ -57,6 +57,14 @@ async fn main() {
                 .into()
         }
     };
+
+    match fs::exists(&dll_path) {
+        Ok(e) if e => {}
+        _ => {
+            println!("Failed to find dll!");
+            return;
+        }
+    }
 
     let (process_handle, thread_handle) =
         match create_suspend_inject(".\\ai sp@ce.exe ./data", &dll_path) {
@@ -188,6 +196,18 @@ fn create_suspend_inject(command_line: &str, dll_path: &str) -> Option<PROCESS_I
             let mut exit_code = 0;
             let _ = unsafe { GetExitCodeThread(dll_thread, &mut exit_code) };
 
+            if exit_code == 0 {
+                panic!("Failed to inject dll!");
+
+                unsafe {
+                    TerminateProcess(process_info.hProcess, 0);
+
+                    CloseHandle(process_info.hThread);
+                    CloseHandle(process_info.hProcess);
+                }
+                return None;
+            }
+
             println!("Got exit code {}", exit_code);
 
             // resume the main process
@@ -197,8 +217,8 @@ fn create_suspend_inject(command_line: &str, dll_path: &str) -> Option<PROCESS_I
 
             Some(process_info)
         }
-        Err(_) => {
-            panic!("Error creating process");
+        Err(e) => {
+            panic!("Error creating process [{}]", e);
             None
         }
     }
