@@ -2,15 +2,16 @@
 name = "aisp_hook"
 version = "0.1.0"
 edition = "2024"
+links = "aisp_hook_cpp"
 
 [lib]
 crate-type = ["cdylib"]
 
 [build-dependencies]
-cc = "1.2.29"
-xwin = "0.6.6"
-ureq = "3.0.12"
-indicatif = "*"
+cc = "1.2"
+# xwin = "0.6.6"
+# ureq = "3.0.12"
+# indicatif = "*"
 
 # [dependencies]
 # retour = "0.4.0-alpha.3"

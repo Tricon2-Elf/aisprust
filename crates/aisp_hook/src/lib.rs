@@ -1,30 +1,15 @@
-// use std::ffi::c_void;
-//
-// use windows::Win32::Foundation::{GetLastError, HMODULE, HWND, LPARAM, LRESULT, WPARAM};
-// use windows::Win32::System::Console::AllocConsole;
-// use windows::Win32::System::LibraryLoader::{DisableThreadLibraryCalls, GetModuleHandleW};
-// use windows::Win32::System::SystemServices::DLL_PROCESS_ATTACH;
-//
-// // use retour::static_detour;
-//
-// // static_detour! {
-// //     static PresentHook:  unsafe extern "system" fn(*mut c_void, u32, u32) -> HRESULT;
-// // }
-//
-// #[unsafe(no_mangle)]
-// #[allow(non_snake_case)]
-// pub extern "system" fn DllMain(module: HMODULE, call_reason: u32, _reserved: *mut c_void) -> u32 {
-//     if call_reason == DLL_PROCESS_ATTACH {
-//         unsafe {
-//             DisableThreadLibraryCalls(module);
-//         }
-//
-//         unsafe {
-//             AllocConsole();
-//         }
-//
-//         println!("Test AllocConsole");
-//     }
-//
-//     return true.into();
-// }
+use std::ffi::c_void;
+
+
+// #[link(name = "aisp_hook_cpp", kind = "dylib")] 
+unsafe extern "C" {
+    // #[link_name = "CustomDllMain@12"]
+    pub fn CustomDllMain(module: *mut c_void, call_reason: u32, reserved: *mut c_void) -> u32;
+}
+
+#[unsafe(no_mangle)]
+#[allow(non_snake_case)]
+pub unsafe extern "system" fn DllMain(module: *mut c_void, call_reason: u32, reserved: *mut c_void) -> u32 {
+
+    return unsafe { CustomDllMain(module, call_reason, reserved)};
+}

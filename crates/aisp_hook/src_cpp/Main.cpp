@@ -149,7 +149,7 @@ namespace HookAuthPacket
 } // namespace HookCreateStream
 
 
-BOOL APIENTRY DllMain(HMODULE hModule, DWORD dwReason, LPVOID lpReserved)
+extern "C" BOOL CustomDllMain(HMODULE hModule, DWORD dwReason, LPVOID lpReserved)
 {
 
 	switch (dwReason)
@@ -173,9 +173,12 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD dwReason, LPVOID lpReserved)
 		             reinterpret_cast<void**>(&HookGetString::oGetString),
 		             &HookGetString::hkGetString);
 
+    // this crashes on windows
+#ifndef _MSC_VER
 		AttachDetour(reinterpret_cast<void*>(Module + (0x897040 - 0x400000)),
 		             reinterpret_cast<void**>(&HookLog::oLogHandler),
 		             &HookLog::hkLogHandler);
+#endif
 
 
 		// AttachDetour(reinterpret_cast<void*>(Module + (0x7F6DC0 - 0x400000)),

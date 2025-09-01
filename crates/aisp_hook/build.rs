@@ -3,6 +3,8 @@
 use std::env;
 
 fn main() {
+    println!("cargo:rerun-if-changed=build.rs");
+
     let crate_directory = env::var("CARGO_MANIFEST_DIR").expect("manifest_dir not defined");
 
     let target_os = env::var("CARGO_CFG_TARGET_OS").expect("target_os not defined!");
@@ -31,6 +33,7 @@ fn main() {
     println!("cargo:rerun-if-changed=src_cpp");
     println!("cargo:rerun-if-changed=src_cpp/sdk");
 
+    // this is 32 bit only
     match target_arch.as_str() {
         "x86" | "i686" | "i586" => {
             // libs.push("lib/minhook/libMinHook.x86");
@@ -39,15 +42,17 @@ fn main() {
             libs.push("lib/detours/detours.x86");
             build.include("lib/detours");
         }
-        "x86_64" => {
-            libs.push("lib/detours/detours.x64");
-            build.include("lib/detours");
-        }
-
-        _ => (),
+        // "x86_64" => {
+        //     libs.push("lib/detours/detours.x64");
+        //     build.include("lib/detours");
+        // }
+        _ => panic!(
+            "unsupported architecture {}. this only works on 32 bit!",
+            target_arch
+        ),
     }
 
-    build.compile("aisp_hook");
+    build.compile("aisp_hook_cpp");
 
     // search in current directory
     println!("cargo:rustc-link-search={}", crate_directory);
