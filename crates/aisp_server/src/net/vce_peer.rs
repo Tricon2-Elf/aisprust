@@ -1,6 +1,6 @@
 use crate::{
     compression::compression::CompressionType,
-    crypt::encryption::{CryptType, Crypter},
+    crypt::crypto::{CryptoType, NetworkCrypto},
     net::{
         net_error::NetError, packet_handler::ServerHandler, server_backend::NetworkStream,
         stream_buffer::StreamBuffer, vce_codec::VceCodec,
@@ -24,7 +24,7 @@ enum PeerState {
 pub struct VcePeer {
     pub network: NetworkStream,
     pub compressor: CompressionType,
-    pub encryption: CryptType,
+    pub encryption: CryptoType,
 
     pub state: PeerState,
 
@@ -35,7 +35,11 @@ pub struct VcePeer {
 }
 
 impl VcePeer {
-    pub fn new(stream: NetworkStream, compression: CompressionType, encryption: CryptType) -> Self {
+    pub fn new(
+        stream: NetworkStream,
+        compression: CompressionType,
+        encryption: CryptoType,
+    ) -> Self {
         Self {
             network: stream,
             compressor: compression,
@@ -160,6 +164,7 @@ impl VcePeer {
                 //     .outgoing
                 //     .extend_from_slice(&payload_len.to_be_bytes());
                 // self.buffer.outgoing.extend_from_slice(&payload);
+                // println!("Queuing {} bytes", codec_payload.len());
                 self.buffer.outgoing.extend_from_slice(&codec_payload);
             }
         }
@@ -170,6 +175,7 @@ impl VcePeer {
         self.buffer.outgoing.drain(0..size);
 
         if !self.encrypted_buffer.outgoing.is_empty() {
+            // println!("Sending {} bytes", self.encrypted_buffer.outgoing.len());
             self.network
                 .send(self.encrypted_buffer.outgoing.as_mut_slice())
                 .expect("faield to send data");
