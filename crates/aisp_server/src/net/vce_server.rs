@@ -32,7 +32,15 @@ impl<H: ServerHandler> VceServer<H> {
 
             // TODO: create new compressiontype and crypttype. copying doesnt work as it is not
             // stateless.
-            let vce_peer = VcePeer::new(stream, CompressionType::None, CryptType::None);
+            let vce_peer = VcePeer::new(stream, CompressionType::None, CryptoType::None);
+            // let vce_peer = VcePeer::new(
+            //     stream,
+            //     CompressionType::None,
+            //     CryptoType::Camellia(CryptStream::new_server(
+            //         CamelliaProvider::new(),
+            //         CamelliaProvider::new(),
+            //     )),
+            // );
 
             self.peers.push(vce_peer);
         }
