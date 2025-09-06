@@ -1,10 +1,12 @@
-#[repr(u8)]
+use core::time;
+
+// #[repr(u8)]
 pub enum VceCodec {
-    PacketData(Vec<u8>) = 1,
-    Ping = 2,
-    Pong = 3,
-    Terminated = 4,
-    Unknown = 5,
+    PacketData(Vec<u8>),
+    Ping(u64),
+    Pong(u64),
+    Terminated(u32),
+    DirectContact,
 }
 
 impl VceCodec {
@@ -22,15 +24,12 @@ impl VceCodec {
                 // read little endian size
                 let mut packet_size = data[1] as usize;
                 if header_param >= 1 {
-                    // packet_size = (data[2] as usize) << (8);
                     packet_size = (packet_size << 8) | (data[2] as usize);
                 }
                 if header_param >= 2 {
-                    // packet_size += (data[3] as usize) << (8 * 2);
                     packet_size = (packet_size << 8) | (data[3] as usize);
                 }
                 if header_param >= 3 {
-                    // packet_size += (data[4] as usize) << (8 * 3);
                     packet_size = (packet_size << 8) | (data[4] as usize);
                 }
 
@@ -46,24 +45,39 @@ impl VceCodec {
                 Ok((VceCodec::PacketData(payload.into()), data_end))
             }
             1 => {
-                todo!("Add ping support");
+                let time = {
+                    let mut timebuf = [0u8; size_of::<u64>()];
+                    timebuf.copy_from_slice(&data[1..9]);
 
-                Ok((VceCodec::Ping, 9))
+                    u64::from_le_bytes(timebuf)
+                };
+
+                Ok((VceCodec::Ping(time), 9))
             }
             2 => {
-                todo!("Add pong support");
+                let time = {
+                    let mut timebuf = [0u8; size_of::<u64>()];
+                    timebuf.copy_from_slice(&data[1..9]);
 
-                Ok((VceCodec::Pong, 9))
+                    u64::from_le_bytes(timebuf)
+                };
+
+                Ok((VceCodec::Pong(time), 9))
             }
             3 => {
-                todo!("Add Terminated support");
+                let reason = {
+                    let mut buf = [0u8; size_of::<u32>()];
+                    buf.copy_from_slice(&data[1..5]);
 
-                Ok((VceCodec::Terminated, 5))
+                    u32::from_le_bytes(buf)
+                };
+
+                Ok((VceCodec::Terminated(reason), 5))
             }
             4 => {
                 todo!("Add unknown support");
 
-                Ok((VceCodec::Unknown, 0))
+                Ok((VceCodec::DirectContact, 0))
             }
 
             _ => {
@@ -86,23 +100,29 @@ impl VceCodec {
 
                 Ok(buffer)
             }
-            VceCodec::Ping => {
-                todo!("Add ping support");
+            VceCodec::Ping(time) => {
+                let mut buffer = Vec::new();
+                buffer.push(0x10);
+                buffer.extend_from_slice(&time.to_le_bytes());
 
-                Ok(vec![])
+                Ok(buffer)
             }
-            VceCodec::Pong => {
-                todo!("Add pong support");
+            VceCodec::Pong(time) => {
+                let mut buffer = Vec::new();
+                buffer.push(0x20);
+                buffer.extend_from_slice(&time.to_le_bytes());
 
-                Ok(vec![])
+                Ok(buffer)
             }
-            VceCodec::Terminated => {
-                todo!("Add Terminated support");
+            VceCodec::Terminated(reason) => {
+                let mut buffer = Vec::new();
+                buffer.push(0x30);
+                buffer.extend_from_slice(&reason.to_le_bytes());
 
-                Ok(vec![])
+                Ok(buffer)
             }
-            VceCodec::Unknown => {
-                todo!("Add unknown support");
+            VceCodec::DirectContact => {
+                todo!("Add DirectContact support");
 
                 Ok(vec![])
             }
