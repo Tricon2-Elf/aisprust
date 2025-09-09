@@ -11,36 +11,52 @@ pub struct VceServer<H: ServerHandler> {
     handler: H,
 
     pub peers: Vec<VcePeer>,
+
+    is_encrypted: bool,
 }
 
 impl<H: ServerHandler> VceServer<H> {
     // pub fn new(backend: ServerBackend, compressor: CompressionType, encryption: CryptType, handler: Arc<H>) -> Self
-    pub fn new(backend: ServerBackend, handler: H) -> Self {
+    pub fn new(backend: ServerBackend, handler: H, is_encrypted: bool) -> Self {
         Self {
             backend,
 
             handler,
 
             peers: Vec::new(),
+
+            is_encrypted,
+        }
+    }
+    pub fn new_tcp(listen_str: &str, handler: H, is_encrypted: bool) -> Self {
+        Self {
+            backend: ServerBackend::listen_tcp(listen_str).expect("Failed to listen server"),
+
+            handler,
+
+            peers: Vec::new(),
+
+            is_encrypted,
         }
     }
 
     fn handle_incoming(&mut self) {
         // println!("Handle incoming");
         if let Ok(stream) = self.backend.accept() {
-            println!("Got connection {}", stream.peer_address().expect("peer"));
+            println!(
+                "Got connection {} enc: {}",
+                stream.peer_address().expect("peer"),
+                self.is_encrypted
+            );
 
+            let crypto_type = match self.is_encrypted {
+                false => CryptoType::None,
+                true => CryptoType::new_server_camellia(),
+            };
             // TODO: create new compressiontype and crypttype. copying doesnt work as it is not
             // stateless.
-            let vce_peer = VcePeer::new(stream, CompressionType::None, CryptoType::None);
-            // let vce_peer = VcePeer::new(
-            //     stream,
-            //     CompressionType::None,
-            //     CryptoType::Camellia(CryptStream::new_server(
-            //         CamelliaProvider::new(),
-            //         CamelliaProvider::new(),
-            //     )),
-            // );
+            // let vce_peer = VcePeer::new(stream, CompressionType::None, CryptoType::None);
+            let vce_peer = VcePeer::new(stream, CompressionType::None, crypto_type);
 
             self.peers.push(vce_peer);
         }

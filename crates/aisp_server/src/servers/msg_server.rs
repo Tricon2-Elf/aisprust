@@ -16,26 +16,25 @@ use crate::net::{
 };
 
 pub struct VceMsgServer {
-    listen_ip: String,
-    listen_port: u16,
-
+    // listen_ip: String,
+    // listen_port: u16,
     server: VceServer<VceMsgHandler>,
 }
 pub struct VceMsgHandler {}
 
 impl VceMsgServer {
-    pub fn new(listen_ip: &str, port: u16) -> Self {
+    pub fn new(listen_ip: &str, port: u16, is_encrypted: bool) -> Self {
         let format_str = format!("{}:{}", listen_ip, port);
 
         let handler = VceMsgHandler::new();
 
         Self {
-            listen_ip: String::from(listen_ip),
-            listen_port: port,
-
+            // listen_ip: String::from(listen_ip),
+            // listen_port: port,
             server: VceServer::new(
                 ServerBackend::listen_tcp(&format_str).expect("Failed to listen server"),
                 handler,
+                is_encrypted,
             ),
         }
     }
@@ -326,7 +325,7 @@ impl ServerHandler for VceMsgHandler {
             }
 
             PacketId::IdLogoutRequest(req) => {
-                // peer.queue_packet(PacketId::from(msg::LogoutResponse { result: 0 }));
+                peer.queue_packet(PacketId::from(msg::LogoutResponse { result: 0 }));
 
                 Ok(())
             }

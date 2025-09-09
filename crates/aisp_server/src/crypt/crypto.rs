@@ -14,6 +14,14 @@ pub enum CryptoType {
     Rijndael, //(RijndaelCrypter),
     None,
 }
+impl CryptoType {
+    pub fn new_server_camellia() -> Self {
+        CryptoType::Camellia(CryptStream::new_server(
+            CamelliaProvider::new(),
+            CamelliaProvider::new(),
+        ))
+    }
+}
 
 pub trait NetworkCrypto {
     fn handle_incoming(
