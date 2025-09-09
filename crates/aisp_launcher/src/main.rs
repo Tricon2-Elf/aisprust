@@ -22,6 +22,14 @@ use windows::core::{PSTR, s};
 struct TopLevelArgs {
     #[argp(positional)]
     path: String,
+
+    #[argp(
+        option,
+        default = "String::from(\"/home/txt/Documents/Code/AiSpace2/target/i686-pc-windows-msvc/debug/aisp_hook.dll\")",
+        short = 'd',
+        description = "dll path"
+    )]
+    dll_path: String,
 }
 
 #[tokio::main]
@@ -50,24 +58,21 @@ async fn main() {
         }
     }
 
-    let dll_path = match env::var("DLL_FILE") {
+    let dll_path = match env::var("DLL_PATH") {
         Ok(str) => str,
-        Err(_) => {
-            "/home/txt/Documents/Code/AiSpace2/target/i686-pc-windows-msvc/debug/aispace_hook.dll"
-                .into()
-        }
+        Err(_) => args.dll_path,
     };
 
     match fs::exists(&dll_path) {
         Ok(e) if e => {}
         _ => {
-            println!("Failed to find dll!");
+            println!("Failed to find dll at {}", &dll_path);
             return;
         }
     }
 
     let (process_handle, thread_handle) =
-        match create_suspend_inject(".\\ai sp@ce.exe ./data", &dll_path) {
+        match create_suspend_inject("\".\\ai sp@ce.exe\" ./data", &dll_path) {
             Some(pi) => (pi.hProcess.0 as usize, pi.hThread.0 as usize),
             None => panic!("Failed to spawn process!"),
         };
