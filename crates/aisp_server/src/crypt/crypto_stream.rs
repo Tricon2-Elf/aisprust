@@ -55,16 +55,35 @@ pub trait CryptProvider {
 
 const RSA_E: u32 = 65537;
 
+fn create_key<const S: usize>(max_val: &BigUint) -> [u8; S] {
+    let mut key_data = [0u8; S];
+
+    // let mut rng_inst = rand::rng();
+    let mut rng_inst = OsRng;
+
+    loop {
+        rng_inst
+            .try_fill_bytes(&mut key_data)
+            .expect("Failed to fill encrypt key");
+
+        // read data and check if its over max.
+        // this diffie hellman has a small n, so we should make sure key us under n so rsa doesnt
+        // fail.
+        key_data[15] = 0;
+        if BigUint::from_bytes_le(&key_data) >= *max_val {
+            continue;
+        }
+
+        return key_data;
+    }
+}
+
 pub struct CryptStream<T> {
     state: State,
 
     // the rsa is for key exchange. probably similar to diffie hellman
     rsa_priv: Option<RsaPrivateKey>,
     rsa_pub: Option<RsaPublicKey>,
-
-    // one of theese is send and recv keys. depending on client/server.
-    s2c_key: [u8; 0x10],
-    c2s_key: [u8; 0x10],
 
     s2c_ctx: T,
     c2s_ctx: T,
@@ -83,9 +102,6 @@ impl<T: CryptProvider> CryptStream<T> {
 
             state: State::ClientSendPublicKey,
 
-            s2c_key: [0u8; 0x10],
-            c2s_key: [0u8; 0x10],
-
             s2c_ctx: encrypt_provider,
             c2s_ctx: decrypt_provider,
         }
@@ -97,9 +113,6 @@ impl<T: CryptProvider> CryptStream<T> {
 
             rsa_priv: None,
             rsa_pub: None,
-
-            s2c_key: [0u8; 0x10],
-            c2s_key: [0u8; 0x10],
 
             s2c_ctx: encrypt_provider,
             c2s_ctx: decrypt_provider,
@@ -137,49 +150,71 @@ impl<T: CryptProvider> NetworkCrypto for CryptStream<T> {
 
                 self.state = State::ServerGenerateKeys;
 
-                // let mut rng_inst = rand::rng();
-                let mut rng_inst = OsRng;
-
-                rng_inst
-                    .try_fill_bytes(&mut self.s2c_key)
-                    .expect("Failed to fill encrypt key");
-                rng_inst
-                    .try_fill_bytes(&mut self.c2s_key)
-                    .expect("Failed to fill decrypt key");
-
-                // ok so techinically rsa wants the mesasge to be under n. set the last byte to 0
-                // to hopefully get below n always
-                //
-                self.s2c_key[15] = 0;
-                self.c2s_key[15] = 0;
-                println!("c2s key {:?}", self.s2c_key);
-                println!("s2c key {:?}", self.c2s_key);
-
-                if let Err(e) =  self.s2c_ctx.initialize(&self.s2c_key) {
-                    panic!("Failed to initialize cryoto 1 {}", e);
-                }
-                if let Err(e) = self.c2s_ctx.initialize(&self.c2s_key) {
-                    panic!("Failed to initialize cryoto 2 {}", e);
-                }
-
-                let (pub_rsa_e,pub_rsa_n) = {
+                let (pub_rsa_e, pub_rsa_n) = {
                     let rsa = self.rsa_pub.as_ref().expect("pub");
 
                     (rsa.e(), rsa.n())
                 };
 
+                let s2c_key = create_key::<0x10>(pub_rsa_n);
+                let c2s_key = create_key::<0x10>(pub_rsa_n);
+                // let mut s2c_key = [0u8; 0x10];
+                // let mut c2s_key = [0u8; 0x10];
+                // let mut rng_inst = rand::rng();
+                // let mut rng_inst = OsRng;
+                //
+                // rng_inst
+                //     .try_fill_bytes(&mut s2c_key)
+                //     .expect("Failed to fill encrypt key");
+                // rng_inst
+                //     .try_fill_bytes(&mut c2s_key)
+                //     .expect("Failed to fill decrypt key");
+                //
+                // // so techinically rsa wants the mesasge to be under n. set the last byte to 0
+                // // to hopefully get below n always
+                // s2c_key[15] = 0;
+                // c2s_key[15] = 0;
+                println!("c2s key {:?}", s2c_key);
+                println!("s2c key {:?}", c2s_key);
+
+                if let Err(e) = self.s2c_ctx.initialize(&s2c_key) {
+                    panic!("Failed to initialize cryoto 1 {}", e);
+                }
+                if let Err(e) = self.c2s_ctx.initialize(&c2s_key) {
+                    panic!("Failed to initialize cryoto 2 {}", e);
+                }
+
                 // send encrypt_key
                 // NOTE: rsa lib sucks and is too picky. do it manually
-                let encrypted_s2c_key = BigUint::from_bytes_le(&self.s2c_key)
-                    .modpow(pub_rsa_e, pub_rsa_n)
-                    .to_bytes_le();
+                let encrypted_s2c_key = {
+                    let mut key_data = [0u8; 0x10];
+
+                    let enc_data = BigUint::from_bytes_le(&s2c_key)
+                        .modpow(pub_rsa_e, pub_rsa_n)
+                        .to_bytes_le();
+
+                    let enc_len = enc_data.len().min(key_data.len());
+                    key_data[..enc_len].copy_from_slice(&enc_data[..enc_len]);
+
+                    key_data
+                };
                 encrypted.outgoing.extend_from_slice(&encrypted_s2c_key);
 
                 // encrypt and send key to
                 // NOTE: rsa lib sucks and is too picky. do it manually
-                let encrypted_c2s_key = BigUint::from_bytes_le(&self.c2s_key)
-                    .modpow(pub_rsa_e, pub_rsa_n)
-                    .to_bytes_le();
+                let encrypted_c2s_key = {
+                    let mut key_data = [0u8; 0x10];
+
+                    let enc_data = BigUint::from_bytes_le(&c2s_key)
+                        .modpow(pub_rsa_e, pub_rsa_n)
+                        .to_bytes_le();
+
+                    let enc_len = enc_data.len().min(key_data.len());
+                    key_data[..enc_len].copy_from_slice(&enc_data[..enc_len]);
+
+                    key_data
+                };
+
                 encrypted.outgoing.extend_from_slice(&encrypted_c2s_key);
 
                 self.state = State::ServerReady;
@@ -199,7 +234,10 @@ impl<T: CryptProvider> NetworkCrypto for CryptStream<T> {
                 println!("encrypt/c2s key raw {:?}", encrypt_key);
                 println!("decrypt/s2c key raw {:?}", decrypt_key);
 
-                self.s2c_key = match self
+                todo!(
+                    "This probably doesnt work but isnt used normally anyway. logic is sound atleast"
+                );
+                let s2c_key: [u8; 0x10] = match self
                     .rsa_priv
                     .as_ref()
                     .expect("client with no rsa keys.")
@@ -209,7 +247,7 @@ impl<T: CryptProvider> NetworkCrypto for CryptStream<T> {
                     Err(e) => return Err(NetError::Generic(e.to_string())),
                 };
 
-                self.c2s_key = match self
+                let c2s_key: [u8; 0x10] = match self
                     .rsa_priv
                     .as_ref()
                     .expect("client with no rsa keys.")
@@ -219,11 +257,15 @@ impl<T: CryptProvider> NetworkCrypto for CryptStream<T> {
                     Err(e) => return Err(NetError::Generic(e.to_string())),
                 };
 
-                println!("encrypt/c2s key {:?}", self.s2c_key);
-                println!("decrypt/s2c key {:?}", self.c2s_key);
+                println!("encrypt/c2s key {:?}", s2c_key);
+                println!("decrypt/s2c key {:?}", c2s_key);
 
-                self.s2c_ctx.initialize(&self.s2c_key);
-                self.c2s_ctx.initialize(&self.c2s_key);
+                if let Err(e) = self.s2c_ctx.initialize(&s2c_key) {
+                    panic!("Failed to initialize cryoto 1 {}", e);
+                }
+                if let Err(e) = self.c2s_ctx.initialize(&c2s_key) {
+                    panic!("Failed to initialize cryoto 2 {}", e);
+                }
 
                 self.state = State::ClientReady;
 
@@ -258,7 +300,9 @@ impl<T: CryptProvider> NetworkCrypto for CryptStream<T> {
                         &encrypted.incoming[HEADER + (0x10 * i)..HEADER + (0x10 * (i + 1))],
                     );
 
-                    self.c2s_ctx.decrypt(&mut data_block);
+                    self.c2s_ctx
+                        .decrypt(&mut data_block)
+                        .expect("Failed to decrypt block");
 
                     decrypted.incoming.extend_from_slice(&data_block);
                 }
@@ -267,7 +311,9 @@ impl<T: CryptProvider> NetworkCrypto for CryptStream<T> {
                     let mut data_block = [0; 0x10];
                     data_block.copy_from_slice(&encrypted.incoming[offset..offset + 0x10]);
 
-                    self.c2s_ctx.decrypt(&mut data_block);
+                    self.c2s_ctx
+                        .decrypt(&mut data_block)
+                        .expect("Failed to decrypt block");
 
                     decrypted
                         .incoming
@@ -306,7 +352,9 @@ impl<T: CryptProvider> NetworkCrypto for CryptStream<T> {
                         &encrypted.incoming[HEADER + (0x10 * i)..HEADER + (0x10 * (i + 1))],
                     );
 
-                    self.s2c_ctx.decrypt(&mut data_block);
+                    self.s2c_ctx
+                        .decrypt(&mut data_block)
+                        .expect("Failed to decrypt block");
 
                     decrypted.incoming.extend_from_slice(&data_block);
                 }
@@ -315,7 +363,9 @@ impl<T: CryptProvider> NetworkCrypto for CryptStream<T> {
                     let mut data_block = [0; 0x10];
                     data_block.copy_from_slice(&encrypted.incoming[offset..offset + 0x10]);
 
-                    self.s2c_ctx.decrypt(&mut data_block);
+                    self.s2c_ctx
+                        .decrypt(&mut data_block)
+                        .expect("Failed to decrypt block");
 
                     decrypted
                         .incoming
@@ -374,7 +424,9 @@ impl<T: CryptProvider> NetworkCrypto for CryptStream<T> {
                     let mut data_block = [0; 0x10];
                     data_block.copy_from_slice(&decrypted.outgoing[(0x10 * i)..(0x10 * (i + 1))]);
 
-                    self.c2s_ctx.encrypt(&mut data_block);
+                    self.c2s_ctx
+                        .encrypt(&mut data_block)
+                        .expect("Failed to encrypt block");
 
                     encrypted.outgoing.extend_from_slice(&data_block);
                 }
@@ -387,7 +439,9 @@ impl<T: CryptProvider> NetworkCrypto for CryptStream<T> {
                     data_block[..size]
                         .copy_from_slice(&decrypted.outgoing[offset..(offset + size)]);
 
-                    self.c2s_ctx.encrypt(&mut data_block);
+                    self.c2s_ctx
+                        .encrypt(&mut data_block)
+                        .expect("Failed to encrypt block");
 
                     encrypted.outgoing.extend_from_slice(&data_block);
                 }
@@ -414,7 +468,9 @@ impl<T: CryptProvider> NetworkCrypto for CryptStream<T> {
                     let mut data_block = [0; 0x10];
                     data_block.copy_from_slice(&decrypted.outgoing[(0x10 * i)..(0x10 * (i + 1))]);
 
-                    self.s2c_ctx.encrypt(&mut data_block);
+                    self.s2c_ctx
+                        .encrypt(&mut data_block)
+                        .expect("Failed to encrypt block");
 
                     encrypted.outgoing.extend_from_slice(&data_block);
                 }
@@ -427,7 +483,9 @@ impl<T: CryptProvider> NetworkCrypto for CryptStream<T> {
                     data_block[..size]
                         .copy_from_slice(&decrypted.outgoing[offset..(offset + size)]);
 
-                    self.s2c_ctx.encrypt(&mut data_block);
+                    self.s2c_ctx
+                        .encrypt(&mut data_block)
+                        .expect("Failed to encrypt block");
 
                     encrypted.outgoing.extend_from_slice(&data_block);
                 }
