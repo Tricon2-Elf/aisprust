@@ -3,7 +3,6 @@
 Some tools and server emu for some old game.
 
 Network needs a redesign to allow some shared player context and global notify messages.
-encryption needs to be finished and tested. (none of the available camellia libraries has access to state which is needed)
 
 <br>
 <br>
@@ -24,18 +23,23 @@ Note that this was mostly meant as a fun side project, also to gain some experie
 
 Theres some fixed paths in this project that i havent bothered to make settable or change. For usage it should probably be changed
 
-- aisp_launcer: set environment `DLL_PATH` or change `crates/aisp_launcher/main.rs:56`
 - aisp_server: set environment `ITEM_LIST` `crates/aisp_server/src/servers/msg_server.rs:64`
 
-## Hooks
+## Usage
 
-- wine had issues with its WSAGetLastError, unsure if happens in real windows. hooked and returns zero/success. can have some side effects on closing server.
-- hooks function that creates network stream and focres it to unencrypted tcp.
-- hooks gets setting string from csv.
-- hooks logs for vce. useful for debugging.
-- hooks item base table to check data. seems like first is missing :/
+if you need to disable game network encryption, the `aisp_launcher`` with`aisp_hook`` might be needed.
+Otherwise you can start the game directly.
 
-the game has some (ai)std::stream pointers here and there where the logs are outputted to. example is the vce log hooks, or packet send/recv functions. could be nice to change those at one point.
+1. put `connection.txt` in game install directory
+   this makes the game connect to ip address listed in the txt file.
+
+2. start server.
+   there is a parameter option for encryption to use with cargo `cargo run -- -e true`, otherwise you can run the binary directly
+
+3. start game
+
+   **if encrypted**: start game `ai sp@ce.exe "[GAME_INSTALL_DIR]/data" -d [DLL_PATH]`
+   **otherwise** start game `aispace_launcher.exe "[GAME_INSTALL_DIR]"`
 
 ## Compile
 
@@ -47,13 +51,15 @@ XWIN_ARCH=x86 cargo xwin build
 
 for the rest, normal `cargo build` or `cargo run` should work.
 
-## Usage
+## Hooks
 
-NOTE: if camellia network encryption is implemented you might not need launcher
+- wine had issues with its WSAGetLastError, unsure if happens in real windows. hooked and returns zero/success. can have some side effects on closing server.
+- hooks function that creates network stream and focres it to unencrypted tcp.
+- hooks gets setting string from csv.
+- hooks logs for vce. useful for debugging.
+- hooks item base table to check data. seems like first is missing :/
 
-1. put `connection.txt` in game install directory
-2. start server
-3. start game `aispace_launcher.exe "[GAME_INSTALL_DIR]"`
+the game has some (ai)std::stream pointers here and there where the logs are outputted to. example is the vce log hooks, or packet send/recv functions. could be nice to change those at one point.
 
 ## Credits
 
